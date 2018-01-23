@@ -1,0 +1,2 @@
+target 'caffe2-ios' do
+end

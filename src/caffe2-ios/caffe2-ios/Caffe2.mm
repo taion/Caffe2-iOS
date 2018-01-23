@@ -10,7 +10,13 @@
 #import "Caffe2.h"
 #include "caffe2/core/predictor.h"
 #include "caffe2/utils/proto_utils.h"
+#include <sys/time.h>
 
+double time() {
+    timeval t;
+    gettimeofday(&t, nullptr);
+    return t.tv_sec + 1e-6 * t.tv_usec;
+}
 
 void ReadProtoIntoNet(std::string fname, caffe2::NetDef* net) {
     int file = open(fname.c_str(), O_RDONLY);
@@ -156,8 +162,9 @@ CGContextRef CreateRGBABitmapContext (CGImageRef inImage)
 
 - (nullable NSArray<NSNumber*>*) predict:(nonnull UIImage*) image{
     NSMutableArray* result = nil;
+    caffe2::Predictor::TensorVector output_vec_;
     caffe2::Predictor::TensorVector output_vec;
-    
+
     if (self.busyWithInference) {
         return nil;
     } else {
@@ -192,37 +199,50 @@ CGContextRef CreateRGBABitmapContext (CGImageRef inImage)
         const int crops = 1;
         const int channels = 3;
         const int size = predHeight * predWidth;
+        NSLog(@"%f %f", predHeight, predWidth);
         const float hscale = ((float)h) / predHeight;
         const float wscale = ((float)w) / predWidth;
         const float scale = std::min(hscale, wscale);
         std::vector<float> inputPlanar(crops * channels * predHeight * predWidth);
         // Scale down the input to a reasonable predictor size.
-        for (auto i = 0; i < predHeight; ++i) {
-            const int _i = (int) (scale * i);
-            for (auto j = 0; j < predWidth; ++j) {
-                const int _j = (int) (scale * j);
-                // The input is of the form RGBA, we only need the RGB part.
-                float red = (float) pixels[(_i * w + _j) * 4 + 0];
-                float green = (float) pixels[(_i * w + _j) * 4 + 1];
-                float blue = (float) pixels[(_i * w + _j) * 4 + 2];
-                
-                inputPlanar[i * predWidth + j + 0 * size] = blue;
-                inputPlanar[i * predWidth + j + 1 * size] = green;
-                inputPlanar[i * predWidth + j + 2 * size] = red;
+        for (auto c = 0; c < crops; ++c) {
+            for (auto i = 0; i < predHeight; ++i) {
+                const int _i = (int) (scale * i);
+                for (auto j = 0; j < predWidth; ++j) {
+                    const int _j = (int) (scale * j);
+                    // The input is of the form RGBA, we only need the RGB part.
+                    float red = (float) pixels[(_i * w + _j) * 4 + 0];
+                    float green = (float) pixels[(_i * w + _j) * 4 + 1];
+                    float blue = (float) pixels[(_i * w + _j) * 4 + 2];
+                    
+                    inputPlanar[i * predWidth + j + 0 * size + 3 * c * size] = blue;
+                    inputPlanar[i * predWidth + j + 1 * size + 3 * c * size] = green;
+                    inputPlanar[i * predWidth + j + 2 * size + 3 * c * size] = red;
+                }
             }
         }
-        
+
         input.Resize(std::vector<int>({crops, channels, predHeight, predWidth}));
         input.ShareExternalPointer(inputPlanar.data());
         
         caffe2::Predictor::TensorVector input_vec{&input};
+
+        const double t0 = time();
+        _predictor->run(input_vec, &output_vec_);
+        const double t1 = time();
+        
+        const double t2 = time();
         _predictor->run(input_vec, &output_vec);
+        const double t3 = time();
+        
+        NSLog(@"%f", t1 - t0);
+        NSLog(@"%f", t3 - t2);
         
         if (output_vec.capacity() > 0) {
             for (auto output : output_vec) {
                 // currently only one dimensional output supported
                 result = [NSMutableArray arrayWithCapacity:output_vec.size()];
-                for (auto i = 0; i < output->size(); ++i) {
+                for (auto i = 0; i < 1000; ++i) {
                     result[i] = @(output->template data<float>()[i]);
                 }
             }

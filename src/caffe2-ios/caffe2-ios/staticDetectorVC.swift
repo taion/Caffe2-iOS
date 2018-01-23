@@ -7,6 +7,8 @@
 //
 
 import UIKit
+import Vision
+import CoreML
 
 class staticDetectorVC: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIPickerViewDelegate, UIPickerViewDataSource {
 
@@ -93,16 +95,31 @@ class staticDetectorVC: UIViewController, UIImagePickerControllerDelegate, UINav
     func classifier(image: UIImage){
         let start = CACurrentMediaTime()
         self.imageDisplayer.image = image
-        let resizedImage = resizeImage(image: image, newWidth: CGFloat(500))
+        let resizedImage = resizeImage(image: image, newWidth: CGFloat(227), newHeight: CGFloat(227))
+
+//        let model = try! VNCoreMLModel(for: SqueezeNet().model)
+//
+//        let request = VNCoreMLRequest(model: model, completionHandler: { [weak self] request, error in
+//            let results = request.results
+//            let classifications = results as! [VNClassificationObservation]
+//            let end = CACurrentMediaTime()
+//            let elapse = "\(end - start) seconds"
+//            self?.resultDisplayer.text = "Time consumption: \n\(elapse)"
+//        })
+//        request.imageCropAndScaleOption = .scaleFit
+//
+//        let handler = VNImageRequestHandler(cgImage: resizedImage!.cgImage!)
+//        try! handler.perform([request])
+
         if let result = caffe.prediction(regarding: resizedImage!){
             let end = CACurrentMediaTime()
             self.elapse = "\(end - start) seconds"
-            
+
             switch modelPicked {
             case "squeezeNet":
                 let sorted = result.map{$0.floatValue}.enumerated().sorted(by: {$0.element > $1.element})[0...10]
                 let finalResult = sorted.map{"\($0.element*100)% chance to be: \(squeezenetClassMapping[$0.offset]!)"}.joined(separator: "\n\n")
-                
+
                 self.resultDisplayer.text = "Time consumption: \n\(self.elapse)\n \nResults: \n\(finalResult)"
                 print("Result is \n\(finalResult)")
             default:
@@ -110,9 +127,8 @@ class staticDetectorVC: UIViewController, UIImagePickerControllerDelegate, UINav
                 self.resultDisplayer.text = "Time consumption: \n\(self.elapse)\n \nResults: \n\(result)"
             }
             print("Time consumption: \(self.elapse)")
-            
+
         }
-        
     }
     
     override func didReceiveMemoryWarning() {

@@ -8,9 +8,12 @@
 
 // You can find full mapping in here : https://gist.github.com/maraoz/388eddec39d60c6d52d4
 
-var caffe = try! Caffe2(initNetNamed: "squeezeNetInit", predictNetNamed: "squeezeNetPredict")
-let builtInModels = ["squeezeNet","tinyYolo"]
+let builtInModels = [
+    "squeezeNet",
+    "tinyYolo",
+]
 var modelPicked = builtInModels[0]
+var caffe = try! Caffe2(initNetNamed: "\(modelPicked)Init", predictNetNamed: "\(modelPicked)Predict")
 let kDownloadedModelNames = "downloadedModelNames"
 let kDownloadedModelInitPaths = "downloadedModelInitPaths"
 let kDownloadedModelPredictPaths = "downloadedModelPredictPaths"
